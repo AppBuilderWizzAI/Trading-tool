@@ -88,7 +88,7 @@ def load_all_data(symbol, total_weeks, smoothing, ma_int, ma_cot):
 
 df = load_all_data(markt, lookback_weeks, smoothing_weeks, ma_intermarket_len, ma_cot_len)
 
-# --- GRID-LINIEN GENERIEREN (NEUE, ABSOLUT SICHERE SYNTAX) ---
+# --- GRID-LINIEN GENERIEREN (DYNAMISCH) ---
 grid_dates = []
 if len(df) > 0:
     start_dt = df.index[0]
@@ -130,13 +130,14 @@ if show_intermarket:
 # Subplot 3 (bzw. 2): COT Index & COT MA
 fig.add_trace(go.Scatter(x=df.index, y=df['COT_Index'], name="COT Index", line=dict(color='#AA00FF', width=2, shape='hv')), row=current_row, col=1)
 fig.add_trace(go.Scatter(x=df.index, y=df['COT_MA'], name="COT MA", line=dict(color='#00E5FF', width=1.5, dash='solid')), row=current_row, col=1)
-fig.add_shape(type="line", x0=df.index, y0=80, x1=df.index[-1], y1=80, line=dict(color="Green", dash="dash"), row=current_row, col=1)
-fig.add_shape(type="line", x0=df.index, y0=20, x1=df.index[-1], y1=20, line=dict(color="Red", dash="dash"), row=current_row, col=1)
+fig.add_shape(type="line", x0=df.index[0], y0=80, x1=df.index[-1], y1=80, line=dict(color="Green", dash="dash"), row=current_row, col=1)
+fig.add_shape(type="line", x0=df.index[0], y0=20, x1=df.index[-1], y1=20, line=dict(color="Red", dash="dash"), row=current_row, col=1)
 
-# Rasterlinien zeichnen (Gehen durch alle Zeilen)
+# Rasterlinien zeichnen (KORREKTUR: Übergabe als Text-String verhindert Datentyp-Fehler)
 for g_date in grid_dates:
     if g_date >= df.index[0]:
-        fig.add_vline(x=g_date.timestamp() * 1000, line_width=0.8, line_dash="solid", line_color="rgba(255,255,255,0.15)")
+        date_str = g_date.strftime("%Y-%m-%d")
+        fig.add_vline(x=date_str, line_width=0.8, line_dash="solid", line_color="rgba(255,255,255,0.15)")
 
 fig.update_layout(template="plotly_dark", height=850, showlegend=False, xaxis_rangeslider_visible=False)
 st.plotly_chart(fig, use_container_width=True)
