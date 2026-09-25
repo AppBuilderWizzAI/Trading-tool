@@ -110,15 +110,7 @@ low_diff = df['Real_COT_Diff'].rolling(window=smoothing_weeks).min()
 df['COT_Index'] = 100 * (df['Real_COT_Diff'] - low_diff) / (high_diff - low_diff)
 df['COT_MA'] = df['COT_Index'].rolling(window=ma_cot_len).mean()
 
-# --- ZEITZONEN-GITTER BERECHNEN ---
-if lookback_years <= 2:
-    grid_indices = df.index[df.index.to_series().dt.to_period('M').ne(df.index.to_series().shift().dt.to_period('M'))]
-else:
-    months_filter = df.index.month.isin([3, 6, 9, 12])
-    quarter_df = df[months_filter]
-    grid_indices = quarter_df.index[quarter_df.index.to_series().dt.to_period('M').ne(quarter_df.index.to_series().shift().dt.to_period('M'))]
-
-# --- VISUALISIERUNG ---
+# --- VISUALISIERUNG (Ohne vertikale Linien-Funktionen) ---
 rows = 3 if show_intermarket else 2
 heights = [0.5, 0.25, 0.25] if show_intermarket else [0.65, 0.35]
 titles = (f"Kursverlauf: {markt}", "1. Intermarket Makro-Indikator", f"2. CFTC ECHTER COT-Index ({report_type})") if show_intermarket else (f"Kursverlauf: {markt}", f"2. CFTC ECHTER COT-Index ({report_type})")
@@ -134,25 +126,14 @@ if show_intermarket:
     fig.add_trace(go.Scatter(x=df.index, y=df['Intermarket_MA'], name="MA", line=dict(color='#FF9100', width=1.5, dash='dot')), row=c_row, col=1)
     c_row += 1
     
+# Letzter Subplot: COT Index & COT MA
 fig.add_trace(go.Scatter(x=df.index, y=df['COT_Index'], name="Echter COT", line=dict(color='#AA00FF', width=2, shape='hv')), row=c_row, col=1)
 fig.add_trace(go.Scatter(x=df.index, y=df['COT_MA'], name="COT MA", line=dict(color='#00E5FF', width=1.5)), row=c_row, col=1)
 fig.add_shape(type="line", x0=df.index, y0=80, x1=df.index[-1], y1=80, line=dict(color="Green", dash="dash"), row=c_row, col=1)
 fig.add_shape(type="line", x0=df.index, y0=20, x1=df.index[-1], y1=20, line=dict(color="Red", dash="dash"), row=c_row, col=1)
 
-# KORREKTUR: Layout-Shapes statt vlines nutzen, um den Plotly-Fehler komplett zu umgehen
-shapes_list = []
-for g_time in grid_indices:
-    shapes_list.append(dict(
-        type="line",
-        x0=g_time,
-        x1=g_time,
-        y0=0,
-        y1=1,
-        yref="paper",
-        line=dict(color="rgba(255,255,255,0.15)", width=0.8, dash="solid")
-    ))
-
-fig.update_layout(shapes=shapes_list, template="plotly_dark", height=850, showlegend=False, xaxis_rangeslider_visible=False)
+# Nur noch die Standard-Layoutparameter updaten
+fig.update_layout(template="plotly_dark", height=850, showlegend=False, xaxis_rangeslider_visible=False)
 st.plotly_chart(fig, use_container_width=True)
 
 st.info("🎯 Dieses Dashboard bezieht die unzensierten Wochensentiments jetzt live über das offizielle Open-Data-API-Portal der US-Regierung (publicreporting.cftc.gov).")
