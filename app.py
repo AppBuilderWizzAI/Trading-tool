@@ -42,7 +42,7 @@ def load_real_cot_data(report_style, start_year):
     df_list = []
     
     # Schleife lädt die echten Textdateien für die Jahre von den US-Servern
-    for yr in range(start_year, current_row := current_year + 1):
+    for yr in range(start_year, current_year + 1):
         try:
             if report_style == "Klassisch (Commercials vs. Small Specs)":
                 # Lädt den echten "Legacy" Report
@@ -70,7 +70,7 @@ def load_real_cot_data(report_style, start_year):
 def process_dashboard_data(symbol, years, smoothing, ma_int, ma_cot, rep_style):
     meta = market_meta[symbol]
     
-    # 10 Jahre Historie berechnen
+    # Historie berechnen
     start_year = datetime.now().year - years - 2
     
     # Echte COT-Daten von US-Server holen
@@ -99,7 +99,6 @@ def process_dashboard_data(symbol, years, smoothing, ma_int, ma_cot, rep_style):
     final_df['TNX'] = tnx
     
     # Berechnung der echten Netto-Differenzen aus den CFTC-Spalten
-    # Wir mappen die Wochentage, da die CFTC Dienstagsstände Freitags ausgibt
     market_cot.index = market_cot.index.map(lambda x: x + timedelta(days=(4 - x.weekday()) % 7))
     
     if rep_style == "Klassisch (Commercials vs. Small Specs)":
@@ -162,7 +161,7 @@ if not df.empty:
     fig.add_trace(go.Scatter(x=df.index, y=df['COT_Index'], name="Echter COT", line=dict(color='#AA00FF', width=2, shape='hv')), row=c_row, col=1)
     fig.add_trace(go.Scatter(x=df.index, y=df['COT_MA'], name="COT MA", line=dict(color='#00E5FF', width=1.5)), row=c_row, col=1)
     fig.add_shape(type="line", x0=df.index, y0=80, x1=df.index[-1], y1=80, line=dict(color="Green", dash="dash"), row=c_row, col=1)
-    fig.add_shape(type="line", x0=df.index, y0=20, x1=df.index[-1], y1=20, line=dict(color="Red", dash="dash"), row=current_row := c_row, col=1)
+    fig.add_shape(type="line", x0=df.index, y0=20, x1=df.index[-1], y1=20, line=dict(color="Red", dash="dash"), row=c_row, col=1)
     
     for d_str in grid_dates:
         fig.add_vline(x=d_str, line_width=0.8, line_dash="solid", line_color="rgba(255,255,255,0.15)")
