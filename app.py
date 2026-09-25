@@ -61,24 +61,23 @@ start_year = datetime.now().year - lookback_years - 2
 # Echte Daten via Live-Regierungs-API laden
 cot_raw = load_cftc_api_data(meta['cftc_name'], report_type, limit=lookback_years * 54)
 
-# Yahoo Kursdaten holen und MultiIndex plattklopfen
+# Yahoo Kursdaten holen und Spalten-Struktur radikal vereinfachen
 price_raw_df = yf.download(meta['yf'], start=datetime(start_year, 1, 1), end=datetime.now())
-if isinstance(price_raw_df.columns, pd.MultiIndex):
-    price_raw_df.columns = [col[0] for col in price_raw_df.columns]
+price_raw_df = pd.DataFrame(price_raw_df.values, index=price_raw_df.index, columns=price_raw_df.columns.get_level_values(0))
 
 df = price_raw_df.resample('W-FRI').agg({'Close': 'last', 'High': 'max', 'Low': 'min'}).ffill()
 
-# Makro-Daten holen und MultiIndex plattklopfen
+# Makro-Daten holen und vereinfachen
 dxy_raw = yf.download("DX-Y.NYB", start=datetime(start_year, 1, 1), end=datetime.now())
-if isinstance(dxy_raw.columns, pd.MultiIndex): dxy_raw.columns = [col[0] for col in dxy_raw.columns]
+dxy_raw = pd.DataFrame(dxy_raw.values, index=dxy_raw.index, columns=dxy_raw.columns.get_level_values(0))
 df['DXY'] = dxy_raw['Close'].resample('W-FRI').last().ffill()
 
 oil_raw = yf.download("CL=F", start=datetime(start_year, 1, 1), end=datetime.now())
-if isinstance(oil_raw.columns, pd.MultiIndex): oil_raw.columns = [col[0] for col in oil_raw.columns]
+oil_raw = pd.DataFrame(oil_raw.values, index=oil_raw.index, columns=oil_raw.columns.get_level_values(0))
 df['Oil'] = oil_raw['Close'].resample('W-FRI').last().ffill()
 
 tnx_raw = yf.download("^TNX", start=datetime(start_year, 1, 1), end=datetime.now())
-if isinstance(tnx_raw.columns, pd.MultiIndex): tnx_raw.columns = [col[0] for col in tnx_raw.columns]
+tnx_raw = pd.DataFrame(tnx_raw.values, index=tnx_raw.index, columns=tnx_raw.columns.get_level_values(0))
 df['TNX'] = tnx_raw['Close'].resample('W-FRI').last().ffill()
 
 # Echte Netto-Positionen extrahieren, falls API Daten lieferte
@@ -112,16 +111,17 @@ low_diff = df['Real_COT_Diff'].rolling(window=smoothing_weeks).min()
 df['COT_Index'] = 100 * (df['Real_COT_Diff'] - low_diff) / (high_diff - low_diff)
 df['COT_MA'] = df['COT_Index'].rolling(window=ma_cot_len).mean()
 
-# --- ZEITZONEN-GITTER ---
+# --- ZEITZONEN-GITTER BERECHNEN (KORREKTUR: .index[0] nimmt das erste Datum als Startpunkt) ---
 grid_dates = []
-start_dt = df.index
-end_dt = df.index[-1]
-curr = datetime(start_dt.year, start_dt.month, 1)
-while curr <= end_dt:
-    if lookback_years <= 2 or curr.month % 3 == 0:
-        grid_dates.append(curr.strftime("%Y-%m-%d"))
-    if curr.month == 12: curr = datetime(curr.year + 1, 1, 1)
-    else: curr = datetime(curr.year, curr.month + 1, 1)
+if len(df) > 0:
+    start_dt = df.index[0]
+    end_dt = df.index[-1]
+    curr = datetime(start_dt.year, start_dt.month, 1)
+    while curr <= end_dt:
+        if lookback_years <= 2 or curr.month % 3 == 0:
+            grid_dates.append(curr.strftime("%Y-%m-%d"))
+        if curr.month == 12: curr = datetime(curr.year + 1, 1, 1)
+        else: curr = datetime(curr.year, curr.month + 1, 1)
 
 # --- VISUALISIERUNG ---
 rows = 3 if show_intermarket else 2
