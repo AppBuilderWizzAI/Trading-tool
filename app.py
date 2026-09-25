@@ -110,12 +110,10 @@ low_diff = df['Real_COT_Diff'].rolling(window=smoothing_weeks).min()
 df['COT_Index'] = 100 * (df['Real_COT_Diff'] - low_diff) / (high_diff - low_diff)
 df['COT_MA'] = df['COT_Index'].rolling(window=ma_cot_len).mean()
 
-# --- ZEITZONEN-GITTER BERECHNEN (KORREKTUR: Filtert direkt existierende Datetime-Objekte) ---
+# --- ZEITZONEN-GITTER BERECHNEN ---
 if lookback_years <= 2:
-    # Jeden Monat eine Linie (erste Woche des Monats finden)
     grid_indices = df.index[df.index.to_series().dt.to_period('M').ne(df.index.to_series().shift().dt.to_period('M'))]
 else:
-    # Quartalsweise: Nur März (3), Juni (6), September (9), Dezember (12)
     months_filter = df.index.month.isin([3, 6, 9, 12])
     quarter_df = df[months_filter]
     grid_indices = quarter_df.index[quarter_df.index.to_series().dt.to_period('M').ne(quarter_df.index.to_series().shift().dt.to_period('M'))]
@@ -126,6 +124,8 @@ heights = [0.5, 0.25, 0.25] if show_intermarket else [0.65, 0.35]
 titles = (f"Kursverlauf: {markt}", "1. Intermarket Makro-Indikator", f"2. CFTC ECHTER COT-Index ({report_type})") if show_intermarket else (f"Kursverlauf: {markt}", f"2. CFTC ECHTER COT-Index ({report_type})")
 
 fig = make_subplots(rows=rows, cols=1, shared_xaxes=True, vertical_spacing=0.03, subplot_titles=titles, row_heights=heights)
+
+# Subplot 1: Kurs
 fig.add_trace(go.Scatter(x=df.index, y=df['Close'], name="Kurs", line=dict(color='#2962FF', width=2)), row=1, col=1)
 
 c_row = 2
@@ -139,11 +139,20 @@ fig.add_trace(go.Scatter(x=df.index, y=df['COT_MA'], name="COT MA", line=dict(co
 fig.add_shape(type="line", x0=df.index, y0=80, x1=df.index[-1], y1=80, line=dict(color="Green", dash="dash"), row=c_row, col=1)
 fig.add_shape(type="line", x0=df.index, y0=20, x1=df.index[-1], y1=20, line=dict(color="Red", dash="dash"), row=c_row, col=1)
 
-# Rasterlinien zeichnen (KORREKTUR: Übergabe als natives Pandas Timestamp-Objekt verhindert Datentyp-Fehler)
+# KORREKTUR: Layout-Shapes statt vlines nutzen, um den Plotly-Fehler komplett zu umgehen
+shapes_list = []
 for g_time in grid_indices:
-    fig.add_vline(x=g_time, line_width=0.8, line_dash="solid", line_color="rgba(255,255,255,0.15)")
-    
-fig.update_layout(template="plotly_dark", height=850, showlegend=False, xaxis_rangeslider_visible=False)
+    shapes_list.append(dict(
+        type="line",
+        x0=g_time,
+        x1=g_time,
+        y0=0,
+        y1=1,
+        yref="paper",
+        line=dict(color="rgba(255,255,255,0.15)", width=0.8, dash="solid")
+    ))
+
+fig.update_layout(shapes=shapes_list, template="plotly_dark", height=850, showlegend=False, xaxis_rangeslider_visible=False)
 st.plotly_chart(fig, use_container_width=True)
 
 st.info("🎯 Dieses Dashboard bezieht die unzensierten Wochensentiments jetzt live über das offizielle Open-Data-API-Portal der US-Regierung (publicreporting.cftc.gov).")
