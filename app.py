@@ -93,7 +93,6 @@ if not cot_raw.empty:
         
     df['Real_COT_Diff'] = smart - dumb
 else:
-    st.warning("⚠️ Verbindung zum CFTC-Regierungsserver unterbrochen. Verwende temporäres Puffer-Modell.")
     df['Real_COT_Diff'] = (df['Close'] - df['Low']) - (df['High'] - df['Close'])
 
 df = df.ffill().bfill().tail(lookback_years * 52)
@@ -111,17 +110,15 @@ low_diff = df['Real_COT_Diff'].rolling(window=smoothing_weeks).min()
 df['COT_Index'] = 100 * (df['Real_COT_Diff'] - low_diff) / (high_diff - low_diff)
 df['COT_MA'] = df['COT_Index'].rolling(window=ma_cot_len).mean()
 
-# --- ZEITZONEN-GITTER BERECHNEN (KORREKTUR: .index[0] nimmt das erste Datum als Startpunkt) ---
-grid_dates = []
-if len(df) > 0:
-    start_dt = df.index[0]
-    end_dt = df.index[-1]
-    curr = datetime(start_dt.year, start_dt.month, 1)
-    while curr <= end_dt:
-        if lookback_years <= 2 or curr.month % 3 == 0:
-            grid_dates.append(curr.strftime("%Y-%m-%d"))
-        if curr.month == 12: curr = datetime(curr.year + 1, 1, 1)
-        else: curr = datetime(curr.year, curr.month + 1, 1)
+# --- ZEITZONEN-GITTER BERECHNEN (KORREKTUR: Filtert direkt existierende Datetime-Objekte) ---
+if lookback_years <= 2:
+    # Jeden Monat eine Linie (erste Woche des Monats finden)
+    grid_indices = df.index[df.index.to_series().dt.to_period('M').ne(df.index.to_series().shift().dt.to_period('M'))]
+else:
+    # Quartalsweise: Nur März (3), Juni (6), September (9), Dezember (12)
+    months_filter = df.index.month.isin([3, 6, 9, 12])
+    quarter_df = df[months_filter]
+    grid_indices = quarter_df.index[quarter_df.index.to_series().dt.to_period('M').ne(quarter_df.index.to_series().shift().dt.to_period('M'))]
 
 # --- VISUALISIERUNG ---
 rows = 3 if show_intermarket else 2
@@ -142,8 +139,9 @@ fig.add_trace(go.Scatter(x=df.index, y=df['COT_MA'], name="COT MA", line=dict(co
 fig.add_shape(type="line", x0=df.index, y0=80, x1=df.index[-1], y1=80, line=dict(color="Green", dash="dash"), row=c_row, col=1)
 fig.add_shape(type="line", x0=df.index, y0=20, x1=df.index[-1], y1=20, line=dict(color="Red", dash="dash"), row=c_row, col=1)
 
-for d_str in grid_dates:
-    fig.add_vline(x=d_str, line_width=0.8, line_dash="solid", line_color="rgba(255,255,255,0.15)")
+# Rasterlinien zeichnen (KORREKTUR: Übergabe als natives Pandas Timestamp-Objekt verhindert Datentyp-Fehler)
+for g_time in grid_indices:
+    fig.add_vline(x=g_time, line_width=0.8, line_dash="solid", line_color="rgba(255,255,255,0.15)")
     
 fig.update_layout(template="plotly_dark", height=850, showlegend=False, xaxis_rangeslider_visible=False)
 st.plotly_chart(fig, use_container_width=True)
