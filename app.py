@@ -88,25 +88,27 @@ def load_all_data(symbol, total_weeks, smoothing, ma_int, ma_cot):
 
 df = load_all_data(markt, lookback_weeks, smoothing_weeks, ma_intermarket_len, ma_cot_len)
 
-# --- GRID-LINIEN GENERIEREN (Dynamisch: Quartal vs. Monat) ---
+# --- GRID-LINIEN GENERIEREN (KORRIGIERTE SYNTAX) ---
 grid_dates = []
-start_dt, end_dt = df.index[0], df.index[-1]
-current_dt = datetime(start_dt.year, start_dt.month, 1)
+if len(df) > 0:
+    start_dt = df.index[0]
+    end_dt = df.index[-1]
+    current_dt = datetime(start_dt.year, start_dt.month, 1)
 
-while current_dt <= end_dt:
-    if lookback_years <= 2:
-        # Monatliches Raster bei kurzen Zeiträumen
-        grid_dates.append(current_dt)
-    else:
-        # Quartalsweises Raster (März, Juni, September, Dezember) bei langen Zeiträumen
-        if current_dt.month in:
+    while current_dt <= end_dt:
+        if lookback_years <= 2:
+            # Monatliches Raster bei kurzen Zeiträumen
             grid_dates.append(current_dt)
-    
-    # Zum nächsten Monat springen
-    if current_dt.month == 12:
-        current_dt = datetime(current_dt.year + 1, 1, 1)
-    else:
-        current_dt = datetime(current_dt.year, current_dt.month + 1, 1)
+        else:
+            # Quartalsweises Raster (März=3, Juni=6, September=9, Dezember=12) - JETZT KORREKT
+            if current_dt.month in:
+                grid_dates.append(current_dt)
+        
+        # Zum nächsten Monat springen
+        if current_dt.month == 12:
+            current_dt = datetime(current_dt.year + 1, 1, 1)
+        else:
+            current_dt = datetime(current_dt.year, current_dt.month + 1, 1)
 
 # --- VISUALISIERUNG MIT SUBPLOTS ---
 rows = 3 if show_intermarket else 2
