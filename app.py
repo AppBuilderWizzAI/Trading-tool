@@ -38,11 +38,7 @@ market_meta = {
 # 2. DIREKTE ABFRAGE DER OFFIZIELLEN CFTC GOVERNMENT API
 @st.cache_data(ttl=3600)
 def load_cftc_api_data(cftc_market_name, rep_style, limit=520):
-    # Auswahl des korrekten Regierungs-Datensatzes
-    # legacy_fut = "6dca-5xup", tff_fut = "xwd6-7n4g"
     dataset_id = "6dca-5xup" if rep_style == "Klassisch (Commercials vs. Small Specs)" else "xwd6-7n4g"
-    
-    # URL-sicheres Kodieren des Marktnamens für die Regierungsdatenbank
     safe_name = urllib.parse.quote(cftc_market_name)
     api_url = f"https://cftc.gov{dataset_id}.json?$where=market_and_exchange_names='{safe_name}'&$order=report_date_as_mm_dd_yyyy DESC&$limit={limit}"
     
@@ -51,7 +47,6 @@ def load_cftc_api_data(cftc_market_name, rep_style, limit=520):
         if df_api.empty:
             return pd.DataFrame()
         
-        # Datum formatieren
         df_api['report_date_as_mm_dd_yyyy'] = pd.to_datetime(df_api['report_date_as_mm_dd_yyyy'])
         df_api.set_index('report_date_as_mm_dd_yyyy', inplace=True)
         df_api.sort_index(inplace=True)
@@ -66,23 +61,28 @@ start_year = datetime.now().year - lookback_years - 2
 # Echte Daten via Live-Regierungs-API laden
 cot_raw = load_cftc_api_data(meta['cftc_name'], report_type, limit=lookback_years * 54)
 
-if cot_raw.empty:
-    st.error("⚠️ Verbindung zum CFTC-Regierungsserver unterbrochen. Verwende vorübergehend historische Puffer-Daten.")
-    # Fallback zur Absicherung, falls die API kurz offline ist
-    cot_raw = pd.DataFrame()
+# Yahoo Kursdaten holen und MultiIndex plattklopfen
+price_raw_df = yf.download(meta['yf'], start=datetime(start_year, 1, 1), end=datetime.now())
+if isinstance(price_raw_df.columns, pd.MultiIndex):
+    price_raw_df.columns = [col[0] for col in price_raw_df.columns]
 
-# Yahoo Kursdaten holen
-price_df = yf.download(meta['yf'], start=datetime(start_year, 1, 1), end=datetime.now())
-df = price_df.resample('W-FRI').agg({'Close': 'last', 'High': 'max', 'Low': 'min'}).ffill()
+df = price_raw_df.resample('W-FRI').agg({'Close': 'last', 'High': 'max', 'Low': 'min'}).ffill()
 
-# Makro-Daten spiegeln
-df['DXY'] = yf.download("DX-Y.NYB", start=datetime(start_year, 1, 1), end=datetime.now())['Close'].resample('W-FRI').last().ffill()
-df['Oil'] = yf.download("CL=F", start=datetime(start_year, 1, 1), end=datetime.now())['Close'].resample('W-FRI').last().ffill()
-df['TNX'] = yf.download("^TNX", start=datetime(start_year, 1, 1), end=datetime.now())['Close'].resample('W-FRI').last().ffill()
+# Makro-Daten holen und MultiIndex plattklopfen
+dxy_raw = yf.download("DX-Y.NYB", start=datetime(start_year, 1, 1), end=datetime.now())
+if isinstance(dxy_raw.columns, pd.MultiIndex): dxy_raw.columns = [col[0] for col in dxy_raw.columns]
+df['DXY'] = dxy_raw['Close'].resample('W-FRI').last().ffill()
+
+oil_raw = yf.download("CL=F", start=datetime(start_year, 1, 1), end=datetime.now())
+if isinstance(oil_raw.columns, pd.MultiIndex): oil_raw.columns = [col[0] for col in oil_raw.columns]
+df['Oil'] = oil_raw['Close'].resample('W-FRI').last().ffill()
+
+tnx_raw = yf.download("^TNX", start=datetime(start_year, 1, 1), end=datetime.now())
+if isinstance(tnx_raw.columns, pd.MultiIndex): tnx_raw.columns = [col[0] for col in tnx_raw.columns]
+df['TNX'] = tnx_raw['Close'].resample('W-FRI').last().ffill()
 
 # Echte Netto-Positionen extrahieren, falls API Daten lieferte
 if not cot_raw.empty:
-    # Verschiebe die CFTC-Dienstagsdaten auf den Veröffentlichungsfreitag
     cot_raw.index = cot_raw.index.map(lambda x: x + timedelta(days=(4 - x.weekday()) % 7))
     
     if report_type == "Klassisch (Commercials vs. Small Specs)":
@@ -94,7 +94,7 @@ if not cot_raw.empty:
         
     df['Real_COT_Diff'] = smart - dumb
 else:
-    # Automatisches exaktes Ausweich-Backup bei Serverausfall
+    st.warning("⚠️ Verbindung zum CFTC-Regierungsserver unterbrochen. Verwende temporäres Puffer-Modell.")
     df['Real_COT_Diff'] = (df['Close'] - df['Low']) - (df['High'] - df['Close'])
 
 df = df.ffill().bfill().tail(lookback_years * 52)
