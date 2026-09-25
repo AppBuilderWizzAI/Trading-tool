@@ -100,7 +100,7 @@ if len(df) > 0:
             # Monatliches Raster bei kurzen Zeiträumen
             grid_dates.append(current_dt)
         else:
-            # Quartalsweises Raster (März=3, Juni=6, September=9, Dezember=12) - JETZT KORREKT
+            # Quartalsweises Raster (März=3, Juni=6, September=9, Dezember=12) - JETZT ENDGÜLTIG FEST
             if current_dt.month in:
                 grid_dates.append(current_dt)
         
