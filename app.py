@@ -88,7 +88,7 @@ def load_all_data(symbol, total_weeks, smoothing, ma_int, ma_cot):
 
 df = load_all_data(markt, lookback_weeks, smoothing_weeks, ma_intermarket_len, ma_cot_len)
 
-# --- GRID-LINIEN GENERIEREN (KORRIGIERTE SYNTAX) ---
+# --- GRID-LINIEN GENERIEREN (NEUE, ABSOLUT SICHERE SYNTAX) ---
 grid_dates = []
 if len(df) > 0:
     start_dt = df.index[0]
@@ -100,8 +100,8 @@ if len(df) > 0:
             # Monatliches Raster bei kurzen Zeiträumen
             grid_dates.append(current_dt)
         else:
-            # Quartalsweises Raster (März=3, Juni=6, September=9, Dezember=12) - JETZT ENDGÜLTIG FEST
-            if current_dt.month in:
+            # Quartalsweises Raster via mathematischer Teilbarkeit (3, 6, 9, 12)
+            if current_dt.month % 3 == 0:
                 grid_dates.append(current_dt)
         
         # Zum nächsten Monat springen
@@ -130,8 +130,8 @@ if show_intermarket:
 # Subplot 3 (bzw. 2): COT Index & COT MA
 fig.add_trace(go.Scatter(x=df.index, y=df['COT_Index'], name="COT Index", line=dict(color='#AA00FF', width=2, shape='hv')), row=current_row, col=1)
 fig.add_trace(go.Scatter(x=df.index, y=df['COT_MA'], name="COT MA", line=dict(color='#00E5FF', width=1.5, dash='solid')), row=current_row, col=1)
-fig.add_shape(type="line", x0=df.index[0], y0=80, x1=df.index[-1], y1=80, line=dict(color="Green", dash="dash"), row=current_row, col=1)
-fig.add_shape(type="line", x0=df.index[0], y0=20, x1=df.index[-1], y1=20, line=dict(color="Red", dash="dash"), row=current_row, col=1)
+fig.add_shape(type="line", x0=df.index, y0=80, x1=df.index[-1], y1=80, line=dict(color="Green", dash="dash"), row=current_row, col=1)
+fig.add_shape(type="line", x0=df.index, y0=20, x1=df.index[-1], y1=20, line=dict(color="Red", dash="dash"), row=current_row, col=1)
 
 # Rasterlinien zeichnen (Gehen durch alle Zeilen)
 for g_date in grid_dates:
